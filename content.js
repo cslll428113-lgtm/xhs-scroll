@@ -33,9 +33,10 @@
   const shadow=host.attachShadow({mode:'open'});
   const trace=(event,data)=>globalThis.XhsDiagnostics?.add(event,data);
   let folded=true;
+  let pip=null;
   shadow.innerHTML=`<style>
   :host{all:initial}[hidden]{display:none!important}*{box-sizing:border-box}section{width:min(224px,calc(100vw - 16px));max-height:calc(100vh - 16px);overflow-y:auto;background:#202127;color:#f5f5f7;border:1px solid #ffffff25;border-radius:14px;padding:11px;box-shadow:0 6px 24px #0004;font:12px/1.4 system-ui,"Microsoft YaHei",sans-serif}header{cursor:grab;touch-action:none;user-select:none;display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}b{font-size:13px}button{font:inherit;color:inherit;background:#ffffff10;border:1px solid #ffffff18;border-radius:8px;padding:6px;cursor:pointer}button:disabled{opacity:.35;cursor:default}button:focus-visible,input:focus-visible{outline:2px solid #ff5578;outline-offset:2px}label{display:flex;justify-content:space-between;align-items:center;margin:7px 0}input{accent-color:#ff3159}.row{display:flex;gap:6px;margin:8px 0}.row button{flex:1}#queueinfo,#status{color:#b0b0bb;font-size:11px;margin:7px 0;white-space:normal;overflow-wrap:anywhere;line-height:1.6}#mini{touch-action:none;user-select:none;border:0;border-radius:50%;width:36px;height:36px;background:#ff3159;color:white;box-shadow:0 3px 14px #0004;font:20px system-ui;cursor:pointer}#compact{display:flex;align-items:center;gap:3px;padding:4px;border:1px solid #ffffff20;border-radius:24px;background:#202127;box-shadow:0 3px 14px #0004}#compact button{width:34px;height:34px;padding:0;border:0;border-radius:50%;font:18px system-ui;color:#fff;background:transparent;cursor:pointer}#compact #mini{background:#ff3159;box-shadow:none}#compact button:disabled{opacity:.3}#diagnostic{margin-top:8px}textarea{width:100%;height:120px;font-size:10px;resize:vertical;background:#121318;color:#ddd;border:1px solid #ffffff30;border-radius:6px}#fold{font-size:11px;padding:3px 7px}
-  </style><div id="wrap"><section id="panel" aria-label="刷视频" hidden><header id="dragbar" title="拖动移动"><b>刷视频 · 拖动移动</b><button id="fold" type="button" aria-label="收起面板">收起</button></header><label>启用<input id="enabled" type="checkbox" checked></label><label>自动下一条<input id="auto" type="checkbox"></label><div class="row"><button id="prev" type="button">↑ 上一条</button><button id="next" type="button">↓ 下一条</button></div><div id="queueinfo"></div><button id="stream" type="button" style="width:100%;margin:6px 0">独立刷视频</button><button id="start" type="button" style="width:100%">开始</button><button id="refresh" type="button" style="width:100%;margin-top:6px">换一批视频（刷新独立页）</button><button id="comments" type="button" style="width:100%;margin-top:6px">评论</button><div id="status" role="status"></div><button id="diagnose" type="button" style="width:100%">查看诊断</button><div id="diagnostic" hidden><textarea id="report" aria-label="诊断记录" readonly></textarea><span style="font-size:11px">点文本框，Ctrl+A、Ctrl+C 复制</span></div></section><div id="compact" aria-label="视频快捷控制"><button id="mini-prev" type="button" aria-label="上一条视频" title="上一条 · ↑">↑</button><button id="mini" type="button" aria-label="展开设置，拖动移动" title="展开设置 · 拖动移动">⋯</button><button id="mini-next" type="button" aria-label="下一条视频" title="下一条 · ↓">↓</button><button id="mini-refresh" type="button" aria-label="换一批视频，刷新独立页" title="换一批视频（刷新独立页）">↻</button></div></div>`;
+  </style><div id="wrap"><section id="panel" aria-label="刷视频" hidden><header id="dragbar" title="拖动移动"><b>刷视频 · 拖动移动</b><button id="fold" type="button" aria-label="收起面板">收起</button></header><label>启用<input id="enabled" type="checkbox" checked></label><label>自动下一条<input id="auto" type="checkbox"></label><div class="row"><button id="prev" type="button">↑ 上一条</button><button id="next" type="button">↓ 下一条</button></div><div id="queueinfo"></div><button id="stream" type="button" style="width:100%;margin:6px 0">独立刷视频</button><button id="start" type="button" style="width:100%">开始</button><button id="refresh" type="button" style="width:100%;margin-top:6px">换一批视频（刷新独立页）</button><button id="pip" type="button" style="width:100%;margin-top:6px">小窗刷视频</button><button id="comments" type="button" style="width:100%;margin-top:6px">评论</button><div id="status" role="status"></div><button id="diagnose" type="button" style="width:100%">查看诊断</button><div id="diagnostic" hidden><textarea id="report" aria-label="诊断记录" readonly></textarea><span style="font-size:11px">点文本框，Ctrl+A、Ctrl+C 复制</span></div></section><div id="compact" aria-label="视频快捷控制"><button id="mini-prev" type="button" aria-label="上一条视频" title="上一条 · ↑">↑</button><button id="mini" type="button" aria-label="展开设置，拖动移动" title="展开设置 · 拖动移动">⋯</button><button id="mini-next" type="button" aria-label="下一条视频" title="下一条 · ↓">↓</button><button id="mini-refresh" type="button" aria-label="换一批视频，刷新独立页" title="换一批视频（刷新独立页）">↻</button></div></div>`;
   const $=s=>shadow.querySelector(s);
   const floating=XhsFloating.install({host,handles:[$('#dragbar'),$('#mini')],win:window,onSave:position=>chrome.storage.local.set({position})});
   function visible(el) { if(!el?.isConnected) return false; const r=el.getBoundingClientRect();const s=getComputedStyle(el);return r.width>2&&r.height>2&&r.bottom>0&&r.right>0&&r.top<innerHeight&&r.left<innerWidth&&s.display!=='none'&&s.visibility!=='hidden'&&s.opacity!=='0'; }
@@ -43,7 +44,7 @@
   function editing() { return !!document.activeElement?.closest?.(EDIT); }
   function commentsOpen() {return state.commentIntent || panelNodes().some(visible);}
   function blocked() {return [...document.querySelectorAll('.login-container,.login-modal,[role="dialog"]')].some(el=>visible(el)&&/登录|验证码|验证身份|操作频繁/.test(el.textContent||''));}
-  function mode() {return XhsPolicy.decision({...state,comments:commentsOpen(),editing:editing(),hidden:document.hidden,blocked:blocked()});}
+  function mode() {return XhsPolicy.decision({...state,comments:pip?.active()?false:commentsOpen(),editing:document.hidden&&pip?.active()?false:editing(),hidden:document.hidden&&!pip?.active(),blocked:blocked()});}
   function update() {
     const labels={off:'已关闭',blocked:'网页提示登录或验证，请先手动处理','repeat-comments':'正在看评论 · 循环当前视频','repeat-hidden':'页面在后台 · 暂停自动切换',next:'自动模式 · 播完切换下一条','repeat-manual':'手动模式 · 滚轮 / ↑↓ 切换'};
     $('#queueinfo').textContent=queue.length?`${dedicated?'专用模式 · ':''}待播 ${remaining()} 条 · 当前列表 ${queue.length} 条`:'当前页面暂无视频列表';
@@ -57,10 +58,13 @@
     $('#prev').disabled=!state.enabled||!XhsQueue.adjacent(queue,location.href,-1)||state.busy;
     $('#next').disabled=!state.enabled||!queue.length||!state.video||state.busy;
     $('#mini-prev').disabled=$('#prev').disabled;$('#mini-next').disabled=$('#next').disabled;
+    $('#pip').disabled=!state.enabled||!state.video||state.busy;
+    $('#pip').textContent=pip?.active()?'回到视频小窗':'小窗刷视频';
     $('#status').textContent=Date.now()<noticeUntil?notice:state.busy?'正在打开下一条视频…':state.video?labels[mode()]:'已收集当前页面视频；看完可点 ↻ 换一批。';
     $('#enabled').checked=state.enabled;$('#auto').checked=state.auto;$('#auto').disabled=!state.enabled;
     $('#status').title=$('#status').textContent;
     $('#comments').textContent=commentsOpen()?'收起评论':'展开评论';
+    pip?.sync();
   }
   function restoreComments(){for(const [el,old] of saved){if(el.isConnected){if(old===null)el.removeAttribute('style');else el.setAttribute('style',old);}}saved.clear();}
   function collapseComments(){for(const el of panelNodes()){if(!saved.has(el))saved.set(el,el.getAttribute('style'));el.style.setProperty('display','none','important');}}
@@ -69,7 +73,7 @@
   function onEnded(e){const v=e.currentTarget;if(v!==state.video||!state.enabled)return;if(mode()==='next')void navigate(1,true);else replay(v);}
   function timeUpdate(e){const v=e.currentTarget;if(v!==state.video||!state.enabled)return;/* Native players can re-enable loop; ended will not fire when loop=true. */if(v.loop)v.loop=false;}
   function detach(){if(state.video){state.video.removeEventListener('ended',onEnded);state.video.removeEventListener('timeupdate',timeUpdate);}state.video=null;}
-  function activeVideo(){return [...document.querySelectorAll('video')].filter(visible).sort((a,b)=>{const area=x=>{const r=x.getBoundingClientRect();return Math.max(0,Math.min(r.right,innerWidth)-Math.max(r.left,0))*Math.max(0,Math.min(r.bottom,innerHeight)-Math.max(r.top,0));};return area(b)-area(a);})[0]||null;}
+  function activeVideo(){const floated=pip?.video?.();if(floated)return floated;return [...document.querySelectorAll('video')].filter(visible).sort((a,b)=>{const area=x=>{const r=x.getBoundingClientRect();return Math.max(0,Math.min(r.right,innerWidth)-Math.max(r.left,0))*Math.max(0,Math.min(r.bottom,innerHeight)-Math.max(r.top,0));};return area(b)-area(a);})[0]||null;}
   function scan(){
     if(!state.enabled){update();return;}
     collectQueue();
@@ -126,7 +130,7 @@
       if(state.collapsed)collapseComments();
       if(state.video)state.video.play().catch(()=>say('浏览器暂停了自动播放，请点一下视频'));
       return true;
-    }finally{state.busy=false;update();}
+    }finally{state.busy=false;scan();}
   }
   async function navigate(dir,automatic=false){
     if(!state.enabled||!state.video||state.busy||Date.now()<state.cooldown||blocked())return false;
@@ -174,11 +178,12 @@
   window.addEventListener('resize',onResize);window.visualViewport?.addEventListener('resize',onResize);
   document.addEventListener('visibilitychange',update);window.addEventListener('popstate',schedule);
   $('#stream').onclick=()=>{
-    const old={auto:state.auto};
+    const old={auto:state.auto},wasPlaying=state.video&&!state.video.paused;
     // Pause this tab before opening another one. Its feed stays where it is.
+    pip?.close();state.video?.pause?.();
     state.auto=false;update();
     chrome.runtime.sendMessage({type:'xhs-open-stream'},result=>{
-      if(chrome.runtime.lastError||!result?.ok){Object.assign(state,old);say('未能打开专用页，请重新加载扩展后再试');}
+      if(chrome.runtime.lastError||!result?.ok){Object.assign(state,old);if(wasPlaying)state.video?.play().catch(()=>{});say('未能打开专用页，请重新加载扩展后再试');}
     });
   };
   function refreshBatch(){
@@ -186,6 +191,9 @@
     // Refresh is explicit and restricted to this dedicated tab. An ordinary
     // feed opens a separate tab so posts on the original page are preserved.
     if(!dedicated){$('#stream').onclick();return;}
+    if(pip?.active()){
+      try{sessionStorage.setItem('shuluo-pip-refresh','1');}catch{}
+    }
     trace('refresh-batch',{cards:queue.length});
     state.busy=true;noticeUntil=0;update();
     try{
@@ -194,6 +202,14 @@
     }catch{state.busy=false;say('未能刷新独立页，请手动刷新此标签页');}
   }
   $('#refresh').onclick=refreshBatch;$('#mini-refresh').onclick=refreshBatch;
+  pip=XhsPip.create({win:window,getVideo:()=>state.video,getState:()=>({
+    enabled:state.enabled,busy:state.busy,auto:state.auto,
+    canPrev:!!XhsQueue.adjacent(queue,location.href,-1),
+    canNext:!!state.video&&!!XhsQueue.adjacent(queue,location.href,1),
+    status:$('#status').textContent
+  }),onNavigate:dir=>navigate(dir),onAuto:value=>$('#auto').onchange({target:{checked:value}}),
+    onRefresh:refreshBatch,onNotice:say,onChange:()=>{trace('pip-state',{active:pip.active()});update();}});
+  $('#pip').onclick=()=>pip.open();
   $('#start').onclick=()=>{collectQueue();if(state.enabled&&queue.length)openEntry(queue.find(item=>findCard(item.id,false)));};
   $('#prev').onclick=()=>navigate(-1);$('#next').onclick=()=>navigate(1);
   $('#mini-prev').onclick=()=>navigate(-1);$('#mini-next').onclick=()=>navigate(1);
@@ -203,12 +219,13 @@
   $('#diagnose').onclick=()=>{$('#diagnostic').hidden=!$('#diagnostic').hidden;trace('report-state',{cards:queue.length,hasVideo:!!activeVideo(),unavailable:!!document.body?.innerText?.includes('当前笔记暂时无法浏览')});floating.fit();$('#report').value=globalThis.XhsDiagnostics?.exportText()||'诊断脚本未加载';trace('report-open');};
   $('#report').onclick=()=>{$('#report').select();};
   $('#auto').onchange=e=>{state.auto=e.target.checked;if(state.auto)setComments(false);chrome.storage.local.set({auto:state.auto});update();};
-  $('#enabled').onchange=e=>{state.enabled=e.target.checked;chrome.storage.local.set({enabled:state.enabled});if(!state.enabled){restoreComments();for(const [v,loop] of loopSaved)if(v.isConnected)v.loop=loop;detach();}scan();};
+  $('#enabled').onchange=e=>{state.enabled=e.target.checked;chrome.storage.local.set({enabled:state.enabled});if(!state.enabled){pip.close();restoreComments();for(const [v,loop] of loopSaved)if(v.isConnected)v.loop=loop;detach();}scan();};
   chrome.storage.local.get({enabled:true,auto:false,folded:true,position:null},prefs=>{state.enabled=prefs.enabled;state.auto=prefs.auto;setFolded(prefs.folded);floating.restore(prefs.position);scan();});
   trace('ui-ready');
+  try{if(sessionStorage.getItem('shuluo-pip-refresh')==='1'){sessionStorage.removeItem('shuluo-pip-refresh');setFolded(false);say('新一批已重新收集，播放后点“小窗刷视频”继续');}}catch{}
   // One small watchdog; no high-frequency DOM polling or network requests.
-  function startWatch(){clearInterval(watchTimer);watchTimer=setInterval(()=>{if(!document.hidden)scan();},1000);}
+  function startWatch(){clearInterval(watchTimer);watchTimer=setInterval(()=>{if(!document.hidden||pip.active())scan();},1000);}
   startWatch();
   window.addEventListener('pageshow',e=>{if(e.persisted){state.busy=false;observer.observe(document.body,{childList:true,subtree:true});startWatch();scan();}});
-  window.addEventListener('pagehide',()=>{persistQueue();detach();clearInterval(watchTimer);observer.disconnect();restoreComments();for(const [v,loop] of loopSaved)if(v.isConnected)v.loop=loop;});
+  window.addEventListener('pagehide',()=>{persistQueue();pip.close();detach();clearInterval(watchTimer);observer.disconnect();restoreComments();for(const [v,loop] of loopSaved)if(v.isConnected)v.loop=loop;});
 })();

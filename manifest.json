@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "小红薯顺滑刷 · 鼠落",
-  "version": "0.4.4",
-  "description": "完整收集当前页面视频，一键刷新独立页换一批；不再主动滚动加载，不刷新原首页。",
+  "version": "0.5.0",
+  "description": "桌面置顶小窗刷视频，支持上下条、自动播放和手动换批；保留原首页。",
   "permissions": [
     "storage"
   ],
@@ -29,6 +29,7 @@
         "navigation.js",
         "floating.js",
         "close-control.js",
+        "pip.js",
         "content.js"
       ],
       "run_at": "document_idle"

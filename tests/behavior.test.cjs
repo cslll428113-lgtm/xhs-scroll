@@ -34,9 +34,11 @@ function setup(options={}){
  const current=options.href||url(A);
  const doc={hidden:false,activeElement:null,body:new Node(),documentElement:{append(){}},getElementById(){return null;},createElement(){return new Node();},addEventListener(k,f){listeners[k]=f;},querySelectorAll(s){if(s==='video')return detail?[video]:[];if(s==='.note-detail-mask,#noteContainer')return detail?[new Node()]:[];if(s.includes('.close-circle')){const close=new Node();close.click=()=>{detail=false;context.location.href='https://www.xiaohongshu.com/explore';context.location.pathname='/explore';};return detail?[close]:[];}if(s.includes('comments-container'))return [comments];if(s.includes('note-item'))return cards;return [];}};
  let scan;const context={URL,sessionStorage:{getItem:k=>storage.get(k)||null,setItem:(k,v)=>{if(options.failStorage)throw Error('quota');storage.set(k,v);}},document:doc,location:{href:current,pathname:new URL(current).pathname,hash:new URL(current).hash,assign:href=>assignments.push(href),reload:()=>{if(options.failRefresh)throw Error('reload failed');refreshes.push('reload');},replace:href=>{if(options.failRefresh)throw Error('replace failed');refreshes.push(href);}},innerWidth:1000,innerHeight:800,console,Date:options.clock?class extends Date{static now(){return options.clock.now;}}:Date,Map,Promise,getComputedStyle:e=>({display:e.hidden?'none':'block',visibility:'visible',opacity:'1'}),chrome:{runtime:{sendMessage:(msg,cb)=>{messages.push(msg);cb({ok:true});}},storage:{local:{set(){},get(defaults,cb){cb({...defaults,collect:!!options.collect});}}}},MutationObserver:class{observe(){}disconnect(){}},setTimeout:fn=>{Promise.resolve().then(fn);return 1;},clearTimeout(){},setInterval:fn=>{scan=fn;return 1;},clearInterval(){},window:{addEventListener(k,fn){windowEvents[k]=fn;}}};
+ let pipHooks,pipActive=false;
+ if(options.pip)context.testPip={create:hooks=>{pipHooks=hooks;return {active:()=>pipActive,supported:()=>true,sync(){},open(){pipActive=true;hooks.onChange();return true;},close(){pipActive=false;hooks.onChange();}};}};
  context.XhsFloating={install:()=>({restore(){},fit(){}})};context.XhsCardClick={click:card=>card.click()};
- vm.createContext(context);for(const f of ['policy.js','queue.js','live-queue.js','card-target.js','navigation.js','close-control.js','content.js'])vm.runInContext(fs.readFileSync(__dirname+'/../'+f,'utf8'),context);
- return {video,comments,doc,controls,listeners,windowEvents,assignments,refreshes,messages,storage,scan:()=>scan(),getFeedPosition:()=>feedScroll.scrollTop,getScrolls:()=>scrolls,getHref:()=>context.location.href,replaceCards:items=>cards.splice(0,cards.length,...items.map(makeCard))};
+ vm.createContext(context);for(const f of ['policy.js','queue.js','live-queue.js','card-target.js','navigation.js','close-control.js','pip.js','content.js']){if(f==='content.js'&&context.testPip)context.XhsPip=context.testPip;vm.runInContext(fs.readFileSync(__dirname+'/../'+f,'utf8'),context);}
+ return {video,comments,doc,pipHooks:()=>pipHooks,controls,listeners,windowEvents,assignments,refreshes,messages,storage,scan:()=>scan(),getFeedPosition:()=>feedScroll.scrollTop,getScrolls:()=>scrolls,getHref:()=>context.location.href,replaceCards:items=>cards.splice(0,cards.length,...items.map(makeCard))};
 }
 test('manual mode replays without changing the page',()=>{const x=setup();x.video.listeners.ended({currentTarget:x.video});assert.equal(x.video.currentTime,0);assert.equal(x.video.playCount,1);assert.deepEqual(x.assignments,[]);});
 test('background and text editing prevent automatic switches',()=>{for(const kind of ['background','editing']){const x=setup();x.controls.get('#auto').onchange({target:{checked:true}});if(kind==='background')x.doc.hidden=true;else x.doc.activeElement={closest:()=>({})};x.video.listeners.ended({currentTarget:x.video});assert.deepEqual(x.assignments,[]);assert.equal(x.video.playCount,1);}});
@@ -163,4 +165,30 @@ test('all loaded videos are retained beyond old limits and history is not trimme
  assert.match(x.controls.get('#queueinfo').textContent,/当前列表 240 条/);
  await x.controls.get('#start').onclick();await new Promise(r=>setImmediate(r));
  assert.match(x.controls.get('#queueinfo').textContent,/待播 239 条/);assert.equal(x.getScrolls(),0);
+});
+
+
+test('PiP autoplay continues on a background tab, with comments left on the original page',async()=>{
+ const x=setup({pip:true,cards:[{id:A},{id:B}]});
+ x.controls.get('#pip').onclick();x.pipHooks().onAuto(true);
+ x.comments.hidden=false;x.doc.hidden=true;x.doc.activeElement={closest:()=>({})};
+ x.video.listeners.ended({currentTarget:x.video});
+ await new Promise(r=>setImmediate(r));
+ assert.equal(x.getHref(),url(B));assert.equal(x.getScrolls(),0);assert.deepEqual(x.refreshes,[]);
+});
+test('background watchdog scans the next source while PiP is open',async()=>{
+ const x=setup({pip:true,cards:[{id:A},{id:B}]});x.controls.get('#pip').onclick();x.doc.hidden=true;
+ await x.pipHooks().onNavigate(1);x.scan();
+ assert.equal(x.pipHooks().getVideo().currentSrc,'media-'+B);
+});
+test('disabling closes PiP and restores ordinary background behavior',()=>{
+ const x=setup({pip:true,cards:[{id:A},{id:B}]});x.controls.get('#pip').onclick();
+ x.controls.get('#enabled').onchange({target:{checked:false}});
+ assert.equal(x.controls.get('#pip').textContent,'小窗刷视频');assert.equal(x.controls.get('#pip').disabled,true);
+});
+test('PiP refresh is explicit and uses only the dedicated tab',async()=>{
+ const x=setup({pip:true,list:true,href:'https://www.xiaohongshu.com/red_video#shuluo-stream',cards:[{id:A}]});
+ await new Promise(r=>setImmediate(r));x.controls.get('#pip').onclick();
+ assert.deepEqual(x.refreshes,[]);x.pipHooks().onRefresh();
+ assert.equal(x.storage.get('shuluo-pip-refresh'),'1');assert.equal(x.refreshes.length,1);
 });

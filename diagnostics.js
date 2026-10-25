@@ -1,7 +1,7 @@
 (() => {
   'use strict';
   const key='shuluo-xhs-diagnostic-v1';
-  const knownUi=new Set(['fold','mini','prev','next','start','comments','diagnose','enabled','auto','collect','stream','mini-prev','mini-next']);
+  const knownUi=new Set(['fold','mini','prev','next','start','comments','diagnose','enabled','auto','collect','stream','mini-prev','mini-next','pip','refresh','mini-refresh']);
   let records=[];
   try{const stored=JSON.parse(sessionStorage.getItem(key)||'[]');if(Array.isArray(stored))records=stored.slice(-100);}catch{}
   function route(){
@@ -15,7 +15,7 @@
     records.push({t:Date.now(),event,route:route(),...safe});records=records.slice(-100);
     try{sessionStorage.setItem(key,JSON.stringify(records));}catch{}
   }
-  function exportText(){return JSON.stringify({version:'0.4.4',records},null,2);}
+  function exportText(){return JSON.stringify({version:'0.5.0',records},null,2);}
   globalThis.XhsDiagnostics={add,exportText};
   add('boot',{navigationType:performance.getEntriesByType('navigation')[0]?.type||'unknown'});
   window.addEventListener('pagehide',e=>add('pagehide',{persisted:!!e.persisted}));
