@@ -4,7 +4,8 @@
     try{
       const u=new URL(href,base);
       if(u.origin!=='https://www.xiaohongshu.com'||u.username||u.password)return null;
-      const match=u.pathname.match(/^\/(?:explore|search_result|red_video)\/([a-f0-9]{24})\/?$/i);
+      const match=u.pathname.match(/^\/(?:explore|search_result|red_video)\/([a-f0-9]{24})\/?$/i)
+        ||u.pathname.match(/^\/user\/profile\/[a-f0-9]{24}\/([a-f0-9]{24})\/?$/i);
       return match?{id:match[1].toLowerCase(),href:u.href}:null;
     }catch{return null;}
   }

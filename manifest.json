@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "小红薯顺滑刷 · 鼠落",
-  "version": "0.5.0",
+  "version": "0.5.1",
   "description": "桌面置顶小窗刷视频，支持上下条、自动播放和手动换批；保留原首页。",
   "permissions": [
     "storage"

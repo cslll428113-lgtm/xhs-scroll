@@ -16,16 +16,19 @@
   function persistQueue(){try{sessionStorage.setItem(QUEUE_KEY,JSON.stringify({version:2,items:queue,collapsed:state.collapsed,resumeId}));return true;}catch{return false;}}
   function say(text){notice=text;noticeUntil=Date.now()+10000;update();}
   function collectQueue(){
-    const incoming=[];
-    for(const card of document.querySelectorAll('section.note-item,[data-testid="note-item"],.note-item')){
-      if(!card.querySelector('.play-icon,video,[data-note-type="video"],[class*="video-icon"]'))continue;
+    const incoming=[];let videoCards=0,linkedCards=0;
+    const cards=pageCards();
+    for(const card of cards){
+      if(!XhsCardTarget.isVideo(card))continue;
+      videoCards++;
       const link=XhsCardTarget.select(card,{requireLayout:false});
       const item=link&&XhsQueue.note(link.getAttribute('href'),location.href);
-      if(item)incoming.push({...item,title:(card.querySelector('.title')?.textContent||'视频').trim()});
+      if(item){linkedCards++;incoming.push({...item,title:(card.querySelector('.title')?.textContent||'视频').trim()});}
     }
     const currentHref=activeVideo()?location.href:null;
     const next=XhsLiveQueue.sync(queue,incoming,currentHref);
     if(JSON.stringify(next)!==JSON.stringify(queue)){queue=next;persistQueue();}
+    collectionStats={cards:cards.length,videoCards,linkedCards,collected:queue.length};
   }
   const host = document.createElement('div'); host.id='shuluo-xhs';
   host.style.cssText='position:fixed;right:20px;bottom:28px;z-index:2147483646';
@@ -60,7 +63,7 @@
     $('#mini-prev').disabled=$('#prev').disabled;$('#mini-next').disabled=$('#next').disabled;
     $('#pip').disabled=!state.enabled||!state.video||state.busy;
     $('#pip').textContent=pip?.active()?'回到视频小窗':'小窗刷视频';
-    $('#status').textContent=Date.now()<noticeUntil?notice:state.busy?'正在打开下一条视频…':state.video?labels[mode()]:'已收集当前页面视频；看完可点 ↻ 换一批。';
+    $('#status').textContent=Date.now()<noticeUntil?notice:state.busy?'正在打开下一条视频…':state.video?labels[mode()]:queue.length?'已收集当前页面视频，点“开始”播放。':'未识别到当前页面的视频，可点“查看诊断”记录页面结构。';
     $('#enabled').checked=state.enabled;$('#auto').checked=state.auto;$('#auto').disabled=!state.enabled;
     $('#status').title=$('#status').textContent;
     $('#comments').textContent=commentsOpen()?'收起评论':'展开评论';
@@ -88,9 +91,19 @@
       initialStarted=true;void openEntry(queue.find(item=>findCard(item.id,false)));
     }
   }
-  const CARDS='section.note-item,[data-testid="note-item"],.note-item';
+  const CARDS='section.note-item,[data-testid="note-item"],.note-item,.note-card,[data-testid="note-card"]';
+  let collectionStats={cards:0,videoCards:0,linkedCards:0,collected:0};
+  function pageCards(){
+    const cards=new Set(document.querySelectorAll(CARDS));
+    // A cover is also a safe card boundary when a page uses a new wrapper.
+    // Only real note URLs qualify; author-profile and navigation links do not.
+    for(const cover of document.querySelectorAll('a.cover[href]')){
+      if(XhsQueue.note(cover.getAttribute('href'),location.href))cards.add(cover.closest(CARDS)||cover);
+    }
+    return [...cards];
+  }
   function findCard(id,requireLayout=false){
-    for(const card of document.querySelectorAll(CARDS)){
+    for(const card of pageCards()){
       const cover=XhsCardTarget.select(card,{requireLayout});
       if(cover&&XhsQueue.note(cover.getAttribute('href'),location.href)?.id===id)return cover;
     }return null;
@@ -216,7 +229,7 @@
   $('#comments').onclick=()=>setComments(!commentsOpen());
   function setFolded(value){folded=value;$('#panel').hidden=value;$('#mini').hidden=!value;$('#compact').hidden=!value;floating.fit();trace('panel-fold',{folded:value});try{chrome.storage.local.set({folded:value});}catch{}}
   $('#fold').onclick=()=>setFolded(true);$('#mini').onclick=()=>setFolded(false);
-  $('#diagnose').onclick=()=>{$('#diagnostic').hidden=!$('#diagnostic').hidden;trace('report-state',{cards:queue.length,hasVideo:!!activeVideo(),unavailable:!!document.body?.innerText?.includes('当前笔记暂时无法浏览')});floating.fit();$('#report').value=globalThis.XhsDiagnostics?.exportText()||'诊断脚本未加载';trace('report-open');};
+  $('#diagnose').onclick=()=>{$('#diagnostic').hidden=!$('#diagnostic').hidden;collectQueue();trace('collection-state',collectionStats);trace('report-state',{cards:queue.length,hasVideo:!!activeVideo(),unavailable:!!document.body?.innerText?.includes('当前笔记暂时无法浏览')});floating.fit();$('#report').value=globalThis.XhsDiagnostics?.exportText()||'诊断脚本未加载';trace('report-open');};
   $('#report').onclick=()=>{$('#report').select();};
   $('#auto').onchange=e=>{state.auto=e.target.checked;if(state.auto)setComments(false);chrome.storage.local.set({auto:state.auto});update();};
   $('#enabled').onchange=e=>{state.enabled=e.target.checked;chrome.storage.local.set({enabled:state.enabled});if(!state.enabled){pip.close();restoreComments();for(const [v,loop] of loopSaved)if(v.isConnected)v.loop=loop;detach();}scan();};

@@ -4,6 +4,8 @@ const vm=require('node:vm');
 const fs=require('node:fs');
 const A='a'.repeat(24),B='b'.repeat(24),C='c'.repeat(24);
 const url=id=>`https://www.xiaohongshu.com/explore/${id}?xsec_token=original-${id[0]}&xsec_source=pc_feed`;
+const profileUser='d'.repeat(24);
+const profileUrl=id=>`https://www.xiaohongshu.com/user/profile/${profileUser}/${id}?xsec_token=original-${id[0]}&xsec_source=pc_user`;
 const storedQueue=()=>JSON.stringify({version:2,items:[A,B,C].map(id=>({href:url(id)})),collapsed:false});
 function setup(options={}){
  const controls=new Map(),listeners={},windowEvents={},assignments=[],refreshes=[],messages=[];const storage=options.storage||new Map([['shuluo-xhs-queue-v2',storedQueue()]]);let video,comments;
@@ -19,20 +21,23 @@ function setup(options={}){
  let detail=!options.list,scrolls=0;
  const feedScroll={scrollTop:125,scrollLeft:0,parentElement:null,style:{scrollBehavior:"smooth"}};
  const makeCard=({id,video:isVideo=true})=>{
-  const card=new Node();card.parentElement=feedScroll;
+  const card=new Node();card.parentElement=feedScroll;const href=options.profile?profileUrl(id):url(id);
   card.scrollIntoView=()=>{scrolls++;feedScroll.scrollTop=900;if(options.more?.length){const more=options.more.splice(0);cards.push(...more.map(makeCard));}else throw Error('No further fixture items');};
-  const cover=new Node();cover.attrs.href=url(id);
+  const cover=new Node();cover.attrs.href=href;
   cover.ownerDocument={defaultView:{getComputedStyle:()=>({display:'block',visibility:'visible',opacity:'1'})}};
   cover.getBoundingClientRect=()=>({width:detail?0:238,height:detail?0:317});
-  cover.click=()=>{detail=true;video=new Node();video.currentSrc='media-'+id;context.location.href=url(id);context.location.pathname=new URL(url(id)).pathname;};
-  const hidden=new Node();hidden.attrs.href=url(id);hidden.ownerDocument=cover.ownerDocument;hidden.getBoundingClientRect=()=>({width:0,height:0});hidden.click=()=>{throw Error('hidden SEO link clicked');};
-  card.querySelectorAll=s=>s==='a.cover[href]'?[cover]:s==='a.title[href]'?[]:[hidden,cover];
-  card.querySelector=s=>{if(s.includes('.play-icon'))return isVideo?new Node():null;if(s.includes('a.cover'))return cover;if(s==='.title')return {textContent:'Video '+id[0]};return null;};
+  cover.click=()=>{detail=true;video=new Node();video.currentSrc='media-'+id;context.location.href=href;context.location.pathname=new URL(href).pathname;};
+  const hidden=new Node();hidden.attrs.href=href;hidden.ownerDocument=cover.ownerDocument;hidden.getBoundingClientRect=()=>({width:0,height:0});hidden.click=()=>{throw Error('hidden SEO link clicked');};
+  const badge={getAttribute:k=>k==='xlink:href'?'#video':null};
+  card.querySelectorAll=s=>s==='svg use'?(options.sprite&&isVideo?[badge]:[]):s==='a.cover[href]'?[cover]:s==='a.title[href]'?[]:[hidden,cover];
+  card.querySelector=s=>{if(s.includes('.play-icon'))return isVideo&&!options.sprite?new Node():null;if(s.includes('a.cover'))return cover;if(s==='.title')return {textContent:'Video '+id[0]};return null;};
+  cover.matches=s=>s==='a.cover[href]';cover.querySelector=card.querySelector;cover.querySelectorAll=s=>s==='svg use'&&options.sprite&&isVideo?[badge]:[];
+  cover.closest=()=>options.coverOnly?null:card;
   return card;
  };
  const cards=(options.cards||[]).map(makeCard);
  const current=options.href||url(A);
- const doc={hidden:false,activeElement:null,body:new Node(),documentElement:{append(){}},getElementById(){return null;},createElement(){return new Node();},addEventListener(k,f){listeners[k]=f;},querySelectorAll(s){if(s==='video')return detail?[video]:[];if(s==='.note-detail-mask,#noteContainer')return detail?[new Node()]:[];if(s.includes('.close-circle')){const close=new Node();close.click=()=>{detail=false;context.location.href='https://www.xiaohongshu.com/explore';context.location.pathname='/explore';};return detail?[close]:[];}if(s.includes('comments-container'))return [comments];if(s.includes('note-item'))return cards;return [];}};
+ const doc={hidden:false,activeElement:null,body:new Node(),documentElement:{append(){}},getElementById(){return null;},createElement(){return new Node();},addEventListener(k,f){listeners[k]=f;},querySelectorAll(s){if(s==='a.cover[href]')return cards.map(card=>card.querySelectorAll('a.cover[href]')[0]);if(s==='video')return detail?[video]:[];if(s==='.note-detail-mask,#noteContainer')return detail?[new Node()]:[];if(s.includes('.close-circle')){const close=new Node();close.click=()=>{detail=false;context.location.href='https://www.xiaohongshu.com/explore';context.location.pathname='/explore';};return detail?[close]:[];}if(s.includes('comments-container'))return [comments];if(s.includes('note-item'))return options.coverOnly?[]:cards;return [];}};
  let scan;const context={URL,sessionStorage:{getItem:k=>storage.get(k)||null,setItem:(k,v)=>{if(options.failStorage)throw Error('quota');storage.set(k,v);}},document:doc,location:{href:current,pathname:new URL(current).pathname,hash:new URL(current).hash,assign:href=>assignments.push(href),reload:()=>{if(options.failRefresh)throw Error('reload failed');refreshes.push('reload');},replace:href=>{if(options.failRefresh)throw Error('replace failed');refreshes.push(href);}},innerWidth:1000,innerHeight:800,console,Date:options.clock?class extends Date{static now(){return options.clock.now;}}:Date,Map,Promise,getComputedStyle:e=>({display:e.hidden?'none':'block',visibility:'visible',opacity:'1'}),chrome:{runtime:{sendMessage:(msg,cb)=>{messages.push(msg);cb({ok:true});}},storage:{local:{set(){},get(defaults,cb){cb({...defaults,collect:!!options.collect});}}}},MutationObserver:class{observe(){}disconnect(){}},setTimeout:fn=>{Promise.resolve().then(fn);return 1;},clearTimeout(){},setInterval:fn=>{scan=fn;return 1;},clearInterval(){},window:{addEventListener(k,fn){windowEvents[k]=fn;}}};
  let pipHooks,pipActive=false;
  if(options.pip)context.testPip={create:hooks=>{pipHooks=hooks;return {active:()=>pipActive,supported:()=>true,sync(){},open(){pipActive=true;hooks.onChange();return true;},close(){pipActive=false;hooks.onChange();}};}};
@@ -191,4 +196,19 @@ test('PiP refresh is explicit and uses only the dedicated tab',async()=>{
  await new Promise(r=>setImmediate(r));x.controls.get('#pip').onclick();
  assert.deepEqual(x.refreshes,[]);x.pipHooks().onRefresh();
  assert.equal(x.storage.get('shuluo-pip-refresh'),'1');assert.equal(x.refreshes.length,1);
+});
+
+
+test('profile SVG video cards collect, start, and navigate without page reload',async()=>{
+ const x=setup({profile:true,sprite:true,list:true,href:`https://www.xiaohongshu.com/user/profile/${profileUser}`,cards:[{id:A},{id:B},{id:C,video:false}]});
+ assert.match(x.controls.get('#queueinfo').textContent,/当前列表 2 条/);
+ await x.controls.get('#start').onclick();await new Promise(r=>setImmediate(r));assert.equal(x.getHref(),profileUrl(A));
+ await x.controls.get('#next').onclick();assert.equal(x.getHref(),profileUrl(B));
+ assert.deepEqual(x.assignments,[]);assert.deepEqual(x.refreshes,[]);assert.equal(x.getScrolls(),0);
+});
+test('profile cover links collect even when their wrapper class has changed',async()=>{
+ const x=setup({profile:true,sprite:true,coverOnly:true,list:true,href:`https://www.xiaohongshu.com/user/profile/${profileUser}`,cards:[{id:A},{id:B}]});
+ assert.match(x.controls.get('#queueinfo').textContent,/当前列表 2 条/);
+ await x.controls.get('#start').onclick();await new Promise(r=>setImmediate(r));assert.equal(x.getHref(),profileUrl(A));
+ await x.controls.get('#next').onclick();assert.equal(x.getHref(),profileUrl(B));assert.equal(x.getScrolls(),0);
 });

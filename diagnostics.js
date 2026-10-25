@@ -6,6 +6,8 @@
   try{const stored=JSON.parse(sessionStorage.getItem(key)||'[]');if(Array.isArray(stored))records=stored.slice(-100);}catch{}
   function route(){
     const path=location.pathname;
+    if(/^\/user\/profile\/[a-f0-9]{24}\/[a-f0-9]{24}\/?$/i.test(path))return 'note';
+    if(/^\/user\/profile\/[a-f0-9]{24}\/?$/i.test(path))return 'profile';
     return /^\/(explore|search_result|red_video)\/[a-f0-9]{24}/i.test(path)?'note':(path==='/explore'||path==='/red_video')?'feed':path==='/search_result'?'search':path==='/404'?'error':'other';
   }
   // Export only bounded structural facts: never URLs, tokens, text, account data, or note IDs.
@@ -15,7 +17,7 @@
     records.push({t:Date.now(),event,route:route(),...safe});records=records.slice(-100);
     try{sessionStorage.setItem(key,JSON.stringify(records));}catch{}
   }
-  function exportText(){return JSON.stringify({version:'0.5.0',records},null,2);}
+  function exportText(){return JSON.stringify({version:'0.5.1',records},null,2);}
   globalThis.XhsDiagnostics={add,exportText};
   add('boot',{navigationType:performance.getEntriesByType('navigation')[0]?.type||'unknown'});
   window.addEventListener('pagehide',e=>add('pagehide',{persisted:!!e.persisted}));
